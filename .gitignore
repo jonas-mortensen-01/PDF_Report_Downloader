@@ -1,0 +1,56 @@
+# Build results
+bin/
+obj/
+
+# Visual Studio / Rider / VS Code
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.idea/
+
+# Local database / SQL Server files
+*.mdf
+*.ldf
+*.ndf
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# NuGet packages (optional if you restore via nuget)
+*.nupkg
+packages/
+
+# Resharper
+_ReSharper*/
+*.DotSettings.user
+
+# Logs
+*.log
+
+# Publish outputs
+publish/
+
+# Rider IDE
+.idea/
+
+# VS Code workspace
+.vscode/
+
+# Entity Framework Migrations
+Migrations/
+
+# Ignore appsettings secrets
+appsettings.Development.json
+appsettings.json
+
+# Ignore user-specific files
+*.user
+*.suo
+*.vs/
+
+# Ignore Debug and Release folders
+**/Debug/
+**/Release/
