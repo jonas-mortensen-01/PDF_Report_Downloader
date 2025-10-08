@@ -42,44 +42,5 @@ namespace PDF_Report_Downloader.Helpers
                 Status = dto.Status
             };
         }
-
-        public static async Task<PDFValidation> ValidatePDFAsync(string url, string? savePath = null)
-        {
-            using (HttpClient client = new HttpClient())
-            {
-                try
-                {
-                    HttpResponseMessage response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-
-                    if (!response.IsSuccessStatusCode)
-                        return new PDFValidation(false, null, $"HTTP Error {(int)response.StatusCode} - {response.ReasonPhrase}");
-
-                    if (response.Content.Headers.ContentType?.MediaType != "application/pdf")
-                        return new PDFValidation(false, null, "URL does not point to a PDF file (Content-Type mismatch).");
-
-                    byte[] pdfBytes = await response.Content.ReadAsByteArrayAsync();
-
-                    if (pdfBytes.Length < 4 || System.Text.Encoding.ASCII.GetString(pdfBytes, 0, 4) != "%PDF")
-                        return new PDFValidation(false, null, "File does not have a valid PDF header.");
-
-                    if (!string.IsNullOrEmpty(savePath))
-                        await File.WriteAllBytesAsync(savePath, pdfBytes);
-
-                    return new PDFValidation(true, pdfBytes, null); // PDF is valid
-                }
-                catch (HttpRequestException ex)
-                {
-                    return new PDFValidation(false, null, $"Request error: {ex.Message}");
-                }
-                catch (TaskCanceledException)
-                {
-                    return new PDFValidation(false, null, "Request timed out.");
-                }
-                catch (Exception ex)
-                {
-                    return new PDFValidation(false, null, $"Unexpected error: {ex.Message}");
-                }
-            }
-        }
     }
 }

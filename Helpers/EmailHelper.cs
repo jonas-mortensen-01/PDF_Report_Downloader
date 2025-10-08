@@ -1,56 +1,69 @@
 using System.Net;
 using System.Net.Mail;
 
+
 namespace PDF_Report_Downloader.Helpers
 {
     public static class EmailHelper
     {
-        public static async Task SendEmailWithPdfAsync(string smtpHost, string smtpUser, string smtpPass,
-                                               string fromEmail, string toEmail,
-                                               string subject, string body, byte[] pdfBytes, string pdfFileName)
+        public static void SendEmailWithPdfAsync(
+            string smtpHost,
+            int smtpPort,
+            string smtpUser,
+            string smtpPass,
+            string fromEmail,
+            string toEmail,
+            string subject,
+            string body,
+            byte[] pdfBytes,
+            string pdfFileName)
         {
             Console.WriteLine("[Email] Starting email send process...");
 
             try
             {
-                using (var message = new MailMessage())
+                using var message = new MailMessage();
+                message.From = new MailAddress(fromEmail);
+                message.To.Add(toEmail);
+                message.Subject = subject;
+                message.Body = body;
+
+                // Write PDF bytes to a temporary file
+                string tempPath = Path.Combine(Path.GetTempPath(), pdfFileName);
+                File.WriteAllBytesAsync(tempPath, pdfBytes);
+
+                using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read))
                 {
-                    Console.WriteLine("[Email] Creating MailMessage...");
-                    message.From = new MailAddress(fromEmail);
-                    message.To.Add(toEmail);
-                    message.Subject = subject;
-                    message.Body = body;
+                    fs.Write(pdfBytes, 0, pdfBytes.Length);
+                    fs.Position = 0;
 
-                    Console.WriteLine($"[Email] Preparing PDF attachment: {pdfFileName}, size: {pdfBytes.Length} bytes");
-                    using (var stream = new MemoryStream(pdfBytes))
+                    var attachment = new Attachment(fs, pdfFileName, "application/pdf");
+                    message.Attachments.Add(attachment);
+
+                    using var client = new SmtpClient(smtpHost, smtpPort)
                     {
-                        var attachment = new Attachment(stream, pdfFileName, "application/pdf");
-                        message.Attachments.Add(attachment);
+                        EnableSsl = true,
+                        Credentials = new NetworkCredential(smtpUser, smtpPass)
+                    };
 
-                        Console.WriteLine($"[Email] Configuring SMTP client: {smtpHost}");
-                        using (var client = new SmtpClient(smtpHost))
-                        {
-                            client.EnableSsl = true; // Usually required
-                            client.Credentials = new NetworkCredential(smtpUser, smtpPass);
-
-                            Console.WriteLine("[Email] Sending email...");
-                            await client.SendMailAsync(message);
-                        }
-                    }
+                    client.Send(message);
                 }
 
-                Console.WriteLine("[Email] Email sent successfully!");
+                // Optional: cleanup temporary file
+                File.Delete(tempPath);
             }
             catch (SmtpException ex)
             {
-                Console.WriteLine($"[Email][Error] SMTP error: {ex.StatusCode} - {ex.Message}");
+                Console.WriteLine($"[Email][SMTP Error] {ex.StatusCode} - {ex.Message}");
                 throw;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Email][Error] Unexpected error: {ex.Message}");
+                Console.WriteLine($"[Email][Unexpected Error] {ex.Message}");
                 throw;
             }
         }
     }
+
+
 }

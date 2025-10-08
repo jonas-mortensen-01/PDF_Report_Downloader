@@ -1,5 +1,6 @@
 using PDF_Report_Downloader.Data;
 using PDF_Report_Downloader.Helpers;
+using PDF_Report_Downloader.Controllers;
 using Microsoft.EntityFrameworkCore;
 using PDF_Report_Downloader.Models;
 
@@ -23,7 +24,7 @@ namespace PDF_Report_Downloader.Services
 
             foreach (var doc in documents)
             {
-                var result = !string.IsNullOrEmpty(doc.PdfUrl) ? await ReportHelper.ValidatePDFAsync(doc.PdfUrl) : null;
+                var result = !string.IsNullOrEmpty(doc.PdfUrl) ? await ReportController.ValidatePDFAsync(doc.PdfUrl) : null;
 
                 if (result != null)
                 {
@@ -41,8 +42,9 @@ namespace PDF_Report_Downloader.Services
                 // EmailHelper.SendEmail("jonas.mortensen@specialisterne.com", "Pending PDF Document", emailBody);
 
                 // Send email
-                await EmailHelper.SendEmailWithPdfAsync(
+                EmailHelper.SendEmailWithPdfAsync(
                     smtpHost: "smtp.gmail.com",
+                    smtpPort: 587,
                     smtpUser: "jonas.mortensen@specialisterne.com",
                     smtpPass: "babx tbud tvmc ijyt",
                     fromEmail: "jonas.mortensen@specialisterne.com",
