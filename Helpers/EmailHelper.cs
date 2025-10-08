@@ -22,35 +22,46 @@ namespace PDF_Report_Downloader.Helpers
 
             try
             {
-                using var message = new MailMessage();
-                message.From = new MailAddress(fromEmail);
-                message.To.Add(toEmail);
-                message.Subject = subject;
-                message.Body = body;
-
-                // Write PDF bytes to a temporary file
-                string tempPath = Path.Combine(Path.GetTempPath(), pdfFileName);
-                File.WriteAllBytesAsync(tempPath, pdfBytes);
-
-                using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read))
+                using (var message = new MailMessage())
                 {
-                    fs.Write(pdfBytes, 0, pdfBytes.Length);
-                    fs.Position = 0;
 
-                    var attachment = new Attachment(fs, pdfFileName, "application/pdf");
-                    message.Attachments.Add(attachment);
+                    message.From = new MailAddress(fromEmail);
+                    message.To.Add(toEmail);
+                    message.Subject = subject;
+                    message.Body = body;
+                    message.IsBodyHtml = true;
 
-                    using var client = new SmtpClient(smtpHost, smtpPort)
+                    // Use MemoryStream for PDF attachment
+                    if (pdfBytes != null && pdfBytes.Length > 0)
                     {
-                        EnableSsl = true,
-                        Credentials = new NetworkCredential(smtpUser, smtpPass)
-                    };
+                        using (var pdfStream = new MemoryStream(pdfBytes))
+                        {
+                            var attachment = new Attachment(pdfStream, pdfFileName, "application/pdf");
+                            message.Attachments.Add(attachment);
 
-                    client.Send(message);
+                            using (var client = new SmtpClient(smtpHost, smtpPort))
+                            {
+                                client.EnableSsl = true;
+                                client.Credentials = new NetworkCredential(smtpUser, smtpPass);
+
+                                // Send synchronously
+                                client.Send(message);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        using (var client = new SmtpClient(smtpHost, smtpPort))
+                        {
+                            client.EnableSsl = true;
+                            client.Credentials = new NetworkCredential(smtpUser, smtpPass);
+
+                            // Send the email without attachment
+                            client.Send(message);
+                        }
+                    }
                 }
 
-                // Optional: cleanup temporary file
-                File.Delete(tempPath);
             }
             catch (SmtpException ex)
             {
@@ -64,6 +75,4 @@ namespace PDF_Report_Downloader.Helpers
             }
         }
     }
-
-
 }

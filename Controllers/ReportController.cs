@@ -5,42 +5,50 @@ namespace PDF_Report_Downloader.Controllers
 {
     public static class ReportController
     {
-        public static async Task<PDFValidation> ValidatePDFAsync(string url, string? savePath = null)
+        public static async Task<PDFValidation> ValidatePDFAsync(string url)
         {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? pdfUri))
+                return new PDFValidation(false, null, "Invalid URL");
+
             try
             {
-                if (!Uri.TryCreate("https://investor.cict.com.sg/misc/ar2015.pdf", UriKind.Absolute, out Uri? pdfUri))
-                    return new PDFValidation(false, null, "Invalid URL");
+                using var client = HttpClientProvider._sharedClient;
 
-                // HttpResponseMessage response = await _sharedClient.GetAsync(url);
-                HttpResponseMessage response = Task.Run(() => HttpClientProvider._sharedClient.GetAsync(pdfUri)).Result;
+                // Send HEAD request first to check if the file exists and is a PDF
+                using var headRequest = new HttpRequestMessage(HttpMethod.Head, pdfUri);
 
-                // var downloadTasks = new List<Task<DownloadTask>>();
-                // foreach (int pdfUri in pdfUris)
-                // {
-                //     downloadTasks.Add(HttpClientProvider._sharedClient.GetAsync(pdfUri));
-                // }
-                // IEnumerable<HttpResponseMessage> responses = await Task.WhenAll(downloadTasks).Result;
+                var headResponse = new HttpResponseMessage();
+                try
+                {
+                    headResponse = client.Send(headRequest);
+                }
+                catch (Exception ex) {
+                }
 
+                if (!headResponse.IsSuccessStatusCode)
+                    return new PDFValidation(false, null, $"HTTP Error {(int)headResponse.StatusCode} - {headResponse.ReasonPhrase}");
+
+                // Check content type if provided
+                var contentType = headResponse.Content.Headers.ContentType?.MediaType;
+                if (contentType != "application/pdf")
+                    return new PDFValidation(false, null, $"URL does not point to a PDF");
+
+                // If HEAD is OK, download the content
+                var response = await client.GetAsync(pdfUri);
                 if (!response.IsSuccessStatusCode)
                     return new PDFValidation(false, null, $"HTTP Error {(int)response.StatusCode} - {response.ReasonPhrase}");
 
-                if (response.Content.Headers.ContentType?.MediaType != "application/pdf")
-                    return new PDFValidation(false, null, "URL does not point to a PDF file (Content-Type mismatch).");
+                var pdfBytes = await response.Content.ReadAsByteArrayAsync();
 
-                byte[] pdfBytes = await response.Content.ReadAsByteArrayAsync();
-
+                // Validate PDF header
                 if (pdfBytes.Length < 4 || System.Text.Encoding.ASCII.GetString(pdfBytes, 0, 4) != "%PDF")
                     return new PDFValidation(false, null, "File does not have a valid PDF header.");
 
-                if (!string.IsNullOrEmpty(savePath))
-                    await File.WriteAllBytesAsync(savePath, pdfBytes);
-
-                return new PDFValidation(true, pdfBytes, null); // PDF is valid
+                return new PDFValidation(true, pdfBytes, "PDF found file attached");
             }
             catch (HttpRequestException ex)
             {
-                return new PDFValidation(false, null, $"Request error: {ex.Message}");
+                return new PDFValidation(false, null, $"Request failed: {ex.Message}");
             }
             catch (TaskCanceledException)
             {
