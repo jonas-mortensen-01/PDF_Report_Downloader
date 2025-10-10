@@ -34,7 +34,7 @@ namespace PDF_Report_Downloader.Controllers
                     return new PDFValidation(false, null, $"URL does not point to a PDF");
 
                 // If HEAD is OK, download the content
-                var response = await client.GetAsync(pdfUri);
+                var response = client.GetAsync(pdfUri).Result;
                 if (!response.IsSuccessStatusCode)
                     return new PDFValidation(false, null, $"HTTP Error {(int)response.StatusCode} - {response.ReasonPhrase}");
 

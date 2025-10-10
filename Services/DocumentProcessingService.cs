@@ -21,8 +21,8 @@ namespace PDF_Report_Downloader.Services
         public async Task ProcessPendingDocuments()
         {
             var documents = _context.Reports
-                .Where(r => r.PdfUrl != null && r.Name != null)
-                .Take(10)
+                .Where(r => r.PdfUrl != null && r.Name != null && r.Name == "William Tell")
+                .Take(1)
                 .ToList();
 
             var processingTasks = documents.Select(async doc =>
