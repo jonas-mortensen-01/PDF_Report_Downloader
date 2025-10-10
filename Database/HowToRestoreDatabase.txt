@@ -1,0 +1,13 @@
+How to restore your SQL Database from a .bak file
+
+1: Open SQL Server Management Studio
+
+2: Right click you're Databases folder and click "Restore Database"
+
+3: Now a new prompt opened in here you want to select the "device" radio button
+
+4: Press "Add" and select the file destination on your computer for the PDF_Report_DB.bak file provided
+
+5: Select "Ok" and it will start restoring the database
+
+Done

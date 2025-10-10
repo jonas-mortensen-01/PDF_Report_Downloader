@@ -21,65 +21,64 @@ namespace PDF_Report_Downloader.Services
         public async Task ProcessPendingDocuments()
         {
             var documents = _context.Reports
-                .Where(r => r.PdfDownloaded == null && r.PdfUrl != null && r.Name != null)
+                .Where(r => r.PdfUrl != null && r.Name != null)
                 .Take(10)
                 .ToList();
 
-            foreach (var doc in documents)
+            var processingTasks = documents.Select(async doc =>
             {
-                var result = !string.IsNullOrEmpty(doc.PdfUrl) ? await ReportController.ValidatePDFAsync(doc.PdfUrl) : null;
-
-                if (result != null)
+                try
                 {
-                    doc.Status = result.errorMessage;
-                }
+                    var result = !string.IsNullOrEmpty(doc.PdfUrl)
+                        ? await ReportController.ValidatePDFAsync(doc.PdfUrl)
+                        : null;
 
-                var dto = ReportHelper.ToDto(doc);
+                    if (result != null)
+                    {
+                        doc.Status = result.errorMessage;
+                    }
 
-                string emailBody = "";
+                    var dto = ReportHelper.ToDto(doc);
 
-                if (result != null && !result.isValidPdf)
-                {
-                    emailBody += $@"
-                        <p>Failed to load PDF</p><br>
+                    string emailBody = $@"
+                        <p><b>Document Name:</b> {dto.Name}</p>
+                        <p><b>File Path:</b> {dto.PdfUrl}</p>
+                        <p><b>Status:</b> {dto.Status}</p>
                     ";
+
+                    if (result != null && !result.isValidPdf)
+                    {
+                        emailBody = "<p>Failed to load PDF</p><br>" + emailBody + @"
+                    <br><p>Please contact any persons in charge of dataset</p>
+                    <p>To inform them of the error</p>";
+                    }
+
+                    EmailHelper.SendEmailWithPdfAsync(
+                     smtpHost: _configuration["Secrets:SmtpHost"],
+                     smtpPort: Convert.ToInt16(_configuration["Secrets:SmtpPort"]),
+                     smtpUser: _configuration["Secrets:SmtpUser"],
+                     smtpPass: _configuration["Secrets:SmtpPass"],
+                     fromEmail: _configuration["Secrets:FromEmail"],
+                     toEmail: _configuration["Secrets:ToEmail"],
+                     subject: $"{dto.Name} Report",
+                     body: emailBody,
+                     pdfBytes: result.pdfBytes!,
+                     pdfFileName: "Report.pdf");
+
+                    doc.PdfDownloaded = true;
                 }
-
-                emailBody += $@"
-                    
-                    <p><b>Document Name:</b> {dto.Name}</p>
-                    <p><b>File Path:</b> {dto.PdfUrl}</p>
-                    <p><b>Status:</b> {dto.Status}</p>
-                ";
-
-                if (result != null && !result.isValidPdf)
+                catch (Exception ex)
                 {
-                    emailBody += $@"
-                        <br><p>Please contact any persons in charge of dataset</p>
-                        <p>To inform them of the error</p>
-                    ";
+                    // Log the error for that single document
+                    doc.Status = $"Error: {ex.Message}";
                 }
+            });
 
-                // EmailHelper.SendEmail("jonas.mortensen@specialisterne.com", "Pending PDF Document", emailBody);
+            // Run all document tasks in parallel
+            await Task.WhenAll(processingTasks);
 
-                // Send email
-                EmailHelper.SendEmailWithPdfAsync(
-                    smtpHost: _configuration["Secrets:SmtpHost"],
-                    smtpPort: Convert.ToInt16(_configuration["Secrets:SmtpPort"]),
-                    smtpUser: _configuration["Secrets:SmtpUser"],
-                    smtpPass: _configuration["Secrets:SmtpPass"],
-                    fromEmail: _configuration["Secrets:FromEmail"],
-                    toEmail: _configuration["Secrets:ToEmail"],
-                    subject: $"{dto.Name} Report",
-                    body: emailBody,
-                    pdfBytes: result.pdfBytes!,
-                    pdfFileName: "Report.pdf");
-    
-                // Mark as downloaded
-                doc.PdfDownloaded = true;
-            }
-
-            _context.SaveChanges();
+            // Save database changes after all have completed
+            await _context.SaveChangesAsync();
         }
     }
 }
