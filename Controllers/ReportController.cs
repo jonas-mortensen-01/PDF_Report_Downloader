@@ -12,7 +12,7 @@ namespace PDF_Report_Downloader.Controllers
 
             try
             {
-                using var client = HttpClientProvider._sharedClient;
+                var client = HttpClientProvider._sharedClient;
 
                 // Send HEAD request first to check if the file exists and is a PDF
                 using var headRequest = new HttpRequestMessage(HttpMethod.Head, pdfUri);
